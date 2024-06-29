@@ -1,67 +1,64 @@
 ﻿using Microsoft.Data.Analysis;
-using SNN.Common;
-
+using static System.Convert;
+using static System.Double;
+using static System.Type;
 namespace SNN.DistanceMetric
 {
     public sealed class GowerDistance
     {
-        private static double ManhatanDistance(double value1, double value2)
+        private static double DistanceForNumerical(double value1, double value2, double range)
         {
-            return 1.0 - Math.Abs(value1 - value2) / Math.Max(value1, value2);
+            return range == 0.0 ? MinValue : Abs(value1 - value2) / range;
         }
 
         private static double DistanceForNominalAtributes(string value1, string value2)
         {
-            return value1.Equals(value2) ? 1.0 : 0.0;
+            return value1.Equals(value2) ? 0.0 : 1.0;
         }
 
-        private static double DistanceForBinaryAtributes(bool value1, bool value2)
+        public static Dictionary<int, double> GetRanges(DataFrame df)
         {
-            return value1 && value2 ? 1.0 : 0.0;
-        }
-
-        public static DistanceMatrix CalcDistance(DataFrame df)
-        {
-            var matrix = new DistanceMatrix(df.Rows.Count);
-            foreach (var indiv1 in df.Rows.Select((row, index) => (row, index)))
+            var ranges = new Dictionary<int, double>();
+            foreach (var (col, col_idx) in df.Columns.Select((col, col_idx) => (col, col_idx)))
             {
-                foreach (var indiv2 in df.Rows.Select((row, index) => (row, index)))
+                if (GetTypeCode(col.DataType) == TypeCode.Double || GetTypeCode(col.DataType) == TypeCode.Int32)
+                    ranges.Add(col_idx, ToDouble(col.Abs().Max()));
+            }
+
+            return ranges;
+        }
+
+        public static double[] CalcDistancesForPoint(DataFrame df, object[] point, Dictionary<int, double> ranges)
+        {
+            var distanceRow = new double[df.Rows.Count];
+
+            foreach (var (row, rowIdx) in df.Rows.Select((row, rowIdx) => (row, rowIdx)))
+                distanceRow[rowIdx] = CalcDistanceBetweenTwoPoints(row.ToArray(), point, ranges);
+
+            return distanceRow;
+        }
+
+        public static float CalcDistanceBetweenTwoPoints(object[] point1, object[] point2, Dictionary<int, double> ranges)
+        {
+            var distance = 0.0;
+
+            foreach (var (point1_value, idx) in point1.Select((point1_value, idx) => (point1_value, idx)))
+            {
+                var point2_value = point2[idx];
+                switch (GetTypeCode(point1_value.GetType()))
                 {
-                    var dist = 0.0;
-                    var sum_weights = 0;
-                    for (int c = 0; c < df.Columns.Count; c++)
-                    {
-                        var val1 = indiv1.row[c];
-                        var val2 = indiv2.row[c];
-                        if (val1 != null && val2 != null)
-                        {
-                            switch (Type.GetTypeCode(df.Columns[c].DataType))
-                            {
-                                case TypeCode.Double:
-                                case TypeCode.Int32:
-                                    dist += ManhatanDistance(Convert.ToDouble(val1), Convert.ToDouble(val2));
-                                    sum_weights++;
-                                    break;
-                                case TypeCode.String:
-                                    dist += DistanceForNominalAtributes(Convert.ToString(val1)!, Convert.ToString(val2)!);
-                                    sum_weights++;
-                                    break;
-                                case TypeCode.Boolean:
-                                    if ((bool)val1 || (bool)val2)
-                                    {
-                                        dist += DistanceForBinaryAtributes(Convert.ToBoolean(val1), Convert.ToBoolean(val2));
-                                        sum_weights++;
-                                    }
-                                    break;
-                                default:
-                                    break;
-                            }
-                        }
-                    }
-                    matrix[indiv1.index, indiv2.index] = 1.0 - dist / sum_weights;
+                    case TypeCode.Double:
+                    case TypeCode.Int32:
+                        distance += DistanceForNumerical(ToDouble(point1_value), ToDouble(point2_value), ranges[idx]);
+                        break;
+                    case TypeCode.String:
+                        distance += DistanceForNominalAtributes(Convert.ToString(point1_value)!, Convert.ToString(point2_value)!);
+                        break;
+                    default:
+                        break;
                 }
             }
-            return matrix;
+            return (float)distance / point1.Length;
         }
     }
 }
