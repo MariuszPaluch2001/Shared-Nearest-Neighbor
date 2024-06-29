@@ -1,4 +1,4 @@
-### About SNN implementation
+# About SNN implementation
 
 Shared Nearest Neighbor (SNN) is a solution to clustering high-dimensional data with the ability to find clusters of varying density. 
 SNN assigns objects to a cluster, which share a large number of their nearest neighbors.
