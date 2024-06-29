@@ -9,10 +9,10 @@ Implementation use Gower's distance as similarity metric between samples and tri
 
 To run program type:
 ```
-	dotnet run
+dotnet run
 ```
 
 To run tests type:
 ```
-	dotnet test
+dotnet test
 ```
